@@ -146,10 +146,11 @@ class PluginImpl : IPlugin {
                             ApplicationManager.getApplication().runWriteAction {
                                 RuntimeEnvironmentService.getService { service ->
                                     service.updateSelectEnv(p0.id)
+                                    envTextField.text = p0.envValue
+                                    argsTextField.text = p0.argsValue
                                 }
                             }
-                            envTextField.text = p0.envValue
-                            argsTextField.text = p0.argsValue
+
                             changeState.set(true)
                             return true
                         }
@@ -162,7 +163,7 @@ class PluginImpl : IPlugin {
                     object : ToggleAction({ "启用" }, Helper.findIcon("tab.svg", PluginImpl::class.java)) {
                         override fun isSelected(p0: AnActionEvent): Boolean {
                             var isActive = false
-                            ApplicationManager.getApplication().runWriteAction {
+                            ApplicationManager.getApplication().runReadAction {
                                 RuntimeEnvironmentService.getService { service ->
                                     isActive = service.isActive(project, modulesBox.selection)
                                 }

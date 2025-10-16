@@ -1,27 +1,27 @@
 package com.lhstack.env
 
+import com.intellij.designer.actions.AbstractComboBoxAction
 import com.intellij.lang.properties.PropertiesFileType
 import com.intellij.openapi.Disposable
-import com.intellij.openapi.actionSystem.ActionPlaces
-import com.intellij.openapi.actionSystem.ActionUpdateThread
-import com.intellij.openapi.actionSystem.AnActionEvent
-import com.intellij.openapi.actionSystem.impl.ActionButton
+import com.intellij.openapi.actionSystem.*
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.editor.event.DocumentEvent
 import com.intellij.openapi.editor.event.DocumentListener
 import com.intellij.openapi.module.Module
 import com.intellij.openapi.module.ModuleManager
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.ui.ComboBox
 import com.intellij.openapi.util.Disposer
-import com.intellij.ui.ComboboxSpeedSearch
 import com.intellij.ui.JBSplitter
-import com.intellij.ui.ToggleActionButton
 import com.intellij.util.ui.JBUI
 import com.lhstack.data.component.MultiLanguageTextField
+import com.lhstack.env.service.RuntimeEnvironment
+import com.lhstack.env.service.RuntimeEnvironmentService
 import com.lhstack.tools.plugins.*
 import java.awt.BorderLayout
-import java.awt.Dimension
-import javax.swing.*
+import javax.swing.Icon
+import javax.swing.JComponent
+import javax.swing.JLabel
+import javax.swing.JPanel
 
 
 class PluginImpl : IPlugin {
@@ -48,76 +48,179 @@ class PluginImpl : IPlugin {
             JPanel(BorderLayout()).apply {
                 val modules = ModuleManager.getInstance(project).modules.filter { it ->
                     it.isMainModule()
-                }.toTypedArray()
+                }.toList()
                 val changeState = java.util.concurrent.atomic.AtomicBoolean(true)
-                val comboBox = ComboBox<Module>(modules)
-                val envComboBox = ComboBox<String>(arrayOf("dev","test","prod"))
-                ComboboxSpeedSearch.installSpeedSearch<Module>(comboBox) {
-                    it.toString()
-                }
-                if (modules.isNotEmpty()) {
-                    comboBox.selectedItem = modules[0]
-                    envComboBox.selectedItem = this.getActiveEnv(project,comboBox.selectedItem as Module)
-                    envTextField.text = this.getEnv(project,comboBox.selectedItem as Module,envComboBox.selectedItem as String)
-                    argsTextField.text = this.getArgs(project,comboBox.selectedItem as Module,envComboBox.selectedItem as String)
-                }
-                comboBox.addItemListener {
-                    changeState.set(false)
-                    envTextField.text = this.getEnv(project,comboBox.selectedItem as Module,envComboBox.selectedItem as String)
-                    argsTextField.text = this.getArgs(project,comboBox.selectedItem as Module,envComboBox.selectedItem as String)
-                    envComboBox.selectedItem = this.getActiveEnv(project,comboBox.selectedItem as Module)
-                    changeState.set(true)
+                var envComboBox: AbstractComboBoxAction<RuntimeEnvironment>? = null
+
+                val modulesBox = object : AbstractComboBoxAction<Module>() {
+
+                    init {
+                        setItems(
+                            modules, if (modules.isNotEmpty()) {
+                                modules[0]
+                            } else {
+                                null
+                            }
+                        )
+                    }
+
+                    override fun update(
+                        p0: Module,
+                        p1: Presentation,
+                        p2: Boolean
+                    ) {
+                        p1.text = p0.name
+                    }
+
+                    override fun selectionChanged(p0: Module): Boolean {
+                        if (p0 != selection) {
+                            changeState.set(false)
+                            ApplicationManager.getApplication().runWriteAction {
+                                RuntimeEnvironmentService.getService {
+                                    val list = it.getRuntimeEnvironments(project, this.selection)
+                                    val envId = it.getSelectEnvId(project, this.selection)
+                                    val select: RuntimeEnvironment? = if (envId != null) {
+                                        list.firstOrNull { item -> item.id == envId }?.also { env ->
+                                            envTextField.text = env.envValue
+                                            argsTextField.text = env.argsValue
+                                        }
+                                    } else {
+                                        list[0]?.also { env ->
+                                            envTextField.text = env.envValue
+                                            argsTextField.text = env.argsValue
+                                        }
+                                    }
+                                    envComboBox?.setItems(list, select)
+                                }
+                            }
+                            changeState.set(true)
+                            return true
+                        }
+                        return false
+                    }
+
                 }
 
-                envTextField.addDocumentListener(object: DocumentListener{
+
+                envComboBox = object : AbstractComboBoxAction<RuntimeEnvironment>() {
+
+                    init {
+                        ApplicationManager.getApplication().runWriteAction {
+                            RuntimeEnvironmentService.getService {
+                                val list = it.getRuntimeEnvironments(project, modulesBox.selection)
+                                val envId = it.getSelectEnvId(project, modulesBox.selection)
+                                val select: RuntimeEnvironment? = if (envId != null) {
+                                    list.firstOrNull { item -> item.id == envId }?.also { env ->
+                                        envTextField.text = env.envValue
+                                        argsTextField.text = env.argsValue
+                                    }
+                                } else {
+                                    list[0]?.also { env ->
+                                        envTextField.text = env.envValue
+                                        argsTextField.text = env.argsValue
+                                    }
+                                }
+                                setItems(list, select)
+                            }
+                        }
+                    }
+
+                    override fun update(
+                        p0: RuntimeEnvironment,
+                        p1: Presentation,
+                        p2: Boolean
+                    ) {
+                        p1.text = "${p0.name}: ${
+                            if ((p0.remark?.length?:0) > 5) {
+                                p0.remark?.substring(0, 3) + ".."
+                            } else {
+                                p0.remark
+                            }
+                        }"
+                        p1.description = p0.remark
+                    }
+
+                    override fun selectionChanged(p0: RuntimeEnvironment): Boolean {
+                        if (p0.id != selection?.id) {
+                            changeState.set(false)
+                            ApplicationManager.getApplication().runWriteAction {
+                                RuntimeEnvironmentService.getService { service ->
+                                    service.updateSelectEnv(p0.id)
+                                }
+                            }
+                            envTextField.text = p0.envValue
+                            argsTextField.text = p0.argsValue
+                            changeState.set(true)
+                            return true
+                        }
+                        return false
+                    }
+
+                }
+
+                val enabledAction =
+                    object : ToggleAction({ "启用" }, Helper.findIcon("tab.svg", PluginImpl::class.java)) {
+                        override fun isSelected(p0: AnActionEvent): Boolean {
+                            var isActive = false
+                            ApplicationManager.getApplication().runWriteAction {
+                                RuntimeEnvironmentService.getService { service ->
+                                    isActive = service.isActive(project, modulesBox.selection)
+                                }
+                            }
+                            return isActive
+                        }
+
+                        override fun setSelected(p0: AnActionEvent, p1: Boolean) {
+                            ApplicationManager.getApplication().runWriteAction{
+                                RuntimeEnvironmentService.getService { service ->
+                                    service.updateActive(envComboBox.selection, p1)
+                                }
+                            }
+                        }
+
+                    }
+
+                envTextField.addDocumentListener(object : DocumentListener {
                     override fun documentChanged(event: DocumentEvent) {
-                        if(changeState.get()){
-                            this.setEnv(project,comboBox.selectedItem as Module,envComboBox.selectedItem as String,event.document.text)
+                        if (changeState.get()) {
+                            ApplicationManager.getApplication().runWriteAction {
+                                RuntimeEnvironmentService.getService { service ->
+                                    envComboBox.selection?.also { env ->
+                                        env.envValue = event.document.text
+                                        service.updateById(env)
+                                    }
+                                }
+                            }
                         }
                     }
                 })
 
-                argsTextField.addDocumentListener(object: DocumentListener{
+                argsTextField.addDocumentListener(object : DocumentListener {
                     override fun documentChanged(event: DocumentEvent) {
-                        if(changeState.get()){
-                            this.setArgs(project,comboBox.selectedItem as Module,envComboBox.selectedItem as String,event.document.text)
+                        if (changeState.get()) {
+                            ApplicationManager.getApplication().runWriteAction {
+                                RuntimeEnvironmentService.getService { service ->
+                                    envComboBox.selection?.also { env ->
+                                        env.argsValue = event.document.text
+                                        service.updateById(env)
+                                    }
+                                }
+                            }
                         }
                     }
                 })
 
-
-
-                envComboBox.addItemListener {
-                    changeState.set(false)
-                    this.setActiveEnv(project,comboBox.selectedItem as Module,envComboBox.selectedItem as String)
-                    envTextField.text = this.getEnv(project,comboBox.selectedItem as Module,envComboBox.selectedItem as String)
-                    argsTextField.text = this.getArgs(project,comboBox.selectedItem as Module,envComboBox.selectedItem as String)
-                    changeState.set(true)
-                }
-
-
+                val actionManager = ActionManager.getInstance()
+                val toolbar =
+                    actionManager.createActionToolbar("JTools@RuntimeEnvironment@Toolbar", DefaultActionGroup().also {
+                        it.add(enabledAction)
+                        it.add(modulesBox)
+                        it.add(envComboBox)
+                    }, true)
+                toolbar.targetComponent = this
                 this.add(JPanel(BorderLayout()).apply {
                     this.add(JPanel(BorderLayout()).apply {
-                        this.add(JPanel().apply {
-                            this.layout = BoxLayout(this,BoxLayout.X_AXIS)
-                            val toggle =
-                                object : ToggleActionButton("", Helper.findIcon("tab.svg", PluginImpl::class.java)) {
-                                    override fun isSelected(e: AnActionEvent): Boolean = this.getActive(project,comboBox.selectedItem as Module)
-
-                                    override fun setSelected(
-                                        e: AnActionEvent,
-                                        state: Boolean
-                                    ) {
-                                        this.setActive(project,comboBox.selectedItem as Module,state)
-                                    }
-
-                                    override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
-
-                                }
-                            this.add(ActionButton(toggle,toggle.templatePresentation,ActionPlaces.TOOLWINDOW_TOOLBAR_BAR, Dimension(34,20)))
-                            this.add(comboBox)
-                            this.add(envComboBox)
-                        }, BorderLayout.EAST)
+                        this.add(toolbar.component, BorderLayout.EAST)
                     }, BorderLayout.NORTH)
                     this.add(JBSplitter(true).apply {
                         firstComponent = JPanel(BorderLayout()).apply {
@@ -165,11 +268,13 @@ class PluginImpl : IPlugin {
     }
 
     override fun install() {
+        RuntimeEnvironmentService.init();
         AttachJavaProgramPatcher.install()
     }
 
     override fun unInstall() {
         AttachJavaProgramPatcher.uninstall()
+        RuntimeEnvironmentService.destroy()
     }
 
     override fun supportMultiOpens(): Boolean {

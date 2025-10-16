@@ -5,6 +5,7 @@ import com.intellij.execution.JavaRunConfigurationBase
 import com.intellij.execution.configurations.JavaParameters
 import com.intellij.execution.configurations.RunProfile
 import com.intellij.execution.runners.JavaProgramPatcher
+import com.lhstack.env.service.RuntimeEnvironmentService
 
 class AttachJavaProgramPatcher: JavaProgramPatcher() {
 
@@ -24,17 +25,23 @@ class AttachJavaProgramPatcher: JavaProgramPatcher() {
         if(p1 is JavaRunConfigurationBase){
             val project = p1.project
             p1.configurationModule.module?.let { module ->
-                p2.programParametersList.add("--active=${this.getActive(project,module)}")
-                if(this.getActive(project,module)){
-                    val env = this.getEnv(project, module,this.getActiveEnv(project,module))
-                    val args = this.getArgs(project, module,this.getActiveEnv(project,module))
-                    args.split("\n").forEach { line ->
-                        val array = line.split("=")
-                        p2.programParametersList.add("${array[0].trim()}=${array[1].trim()}")
-                    }
-                    env.split("\n").forEach { line ->
-                        val array = line.split("=")
-                        p2.addEnv(array[0].trim(), array[1].trim())
+                RuntimeEnvironmentService.getService { service ->
+                    if(service.isActive(project, module)){
+                        service.getSelectEnvId(project, module)?.also { envId ->
+                            service.getById(envId)?.also { runtimeEnv ->
+                                val env = runtimeEnv.envValue?:""
+                                val args = runtimeEnv.argsValue?:""
+                                args.split("\n").forEach { line ->
+                                    val array = line.split("=")
+                                    p2.programParametersList.add("${array[0].trim()}=${array[1].trim()}")
+                                }
+                                env.split("\n").forEach { line ->
+                                    val array = line.split("=")
+                                    p2.addEnv(array[0].trim(), array[1].trim())
+                                }
+                            }
+                        }
+
                     }
                 }
             }

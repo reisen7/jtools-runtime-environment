@@ -85,11 +85,13 @@ class PluginImpl : IPlugin {
                                         list.firstOrNull { item -> item.id == envId }?.also { env ->
                                             envTextField.text = env.envValue
                                             argsTextField.text = env.argsValue
+                                            vmTextField.text= env.vmValue
                                         }
                                     } else {
                                         list[0]?.also { env ->
                                             envTextField.text = env.envValue
                                             argsTextField.text = env.argsValue
+                                            vmTextField.text= env.vmValue
                                         }
                                     }
                                     envComboBox?.setItems(list, select)
@@ -115,11 +117,13 @@ class PluginImpl : IPlugin {
                                     list.firstOrNull { item -> item.id == envId }?.also { env ->
                                         envTextField.text = env.envValue
                                         argsTextField.text = env.argsValue
+                                        vmTextField.text= env.vmValue
                                     }
                                 } else {
                                     list[0]?.also { env ->
                                         envTextField.text = env.envValue
                                         argsTextField.text = env.argsValue
+                                        vmTextField.text= env.vmValue
                                     }
                                 }
                                 setItems(list, select)
@@ -150,6 +154,7 @@ class PluginImpl : IPlugin {
                                     service.updateSelectEnv(p0.id)
                                     envTextField.text = p0.envValue
                                     argsTextField.text = p0.argsValue
+                                    vmTextField.text= p0.vmValue
                                 }
                             }
 

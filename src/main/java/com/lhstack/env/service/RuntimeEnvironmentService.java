@@ -158,6 +158,7 @@ public class RuntimeEnvironmentService extends ServiceImpl<RuntimeEnvironmentMap
         List<RuntimeEnvironment> list = this.lambdaQuery()
                 .eq(RuntimeEnvironment::getProjectHash, project.getLocationHash())
                 .eq(RuntimeEnvironment::getModule, module.toString())
+                .orderByAsc(RuntimeEnvironment::getId)
                 .list();
         if (list.isEmpty()) {
             list = RuntimeEnvironment.buildInitList(project, module);

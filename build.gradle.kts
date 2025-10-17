@@ -43,8 +43,8 @@ dependencies {
 tasks {
     // Set the JVM compatibility versions
     withType<JavaCompile> {
-        sourceCompatibility = "8"
-        targetCompatibility = "8"
+        sourceCompatibility = "17"
+        targetCompatibility = "17"
         options.encoding = "UTF-8"
     }
     withType<JavaExec> {
@@ -67,7 +67,7 @@ tasks {
     }
     withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
         compilerOptions{
-            jvmTarget.set(JvmTarget.JVM_1_8)
+            jvmTarget.set(JvmTarget.JVM_17)
             freeCompilerArgs = listOf("-Xjvm-default=all")
         }
     }

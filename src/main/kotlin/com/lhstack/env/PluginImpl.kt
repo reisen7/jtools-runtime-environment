@@ -1,6 +1,7 @@
 package com.lhstack.env
 
 import com.intellij.designer.actions.AbstractComboBoxAction
+import com.intellij.icons.AllIcons
 import com.intellij.lang.properties.PropertiesFileType
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.actionSystem.*
@@ -15,6 +16,7 @@ import com.intellij.openapi.util.Disposer
 import com.intellij.ui.JBSplitter
 import com.intellij.util.ui.JBUI
 import com.lhstack.data.component.MultiLanguageTextField
+import com.lhstack.env.dialog.EnvSettingDialog
 import com.lhstack.env.service.RuntimeEnvironment
 import com.lhstack.env.service.RuntimeEnvironmentService
 import com.lhstack.tools.plugins.*
@@ -165,9 +167,10 @@ class PluginImpl : IPlugin {
                     }
 
                 }
-
                 val enabledAction =
-                    object : ToggleAction({ "启用" }, Helper.findIcon("tab.svg", PluginImpl::class.java)) {
+                    object : ToggleAction({
+                        "开启"
+                    }, AllIcons.Actions.Selectall) {
                         override fun isSelected(p0: AnActionEvent): Boolean {
                             var isActive = false
                             ApplicationManager.getApplication().runReadAction {
@@ -181,6 +184,11 @@ class PluginImpl : IPlugin {
                         override fun setSelected(p0: AnActionEvent, p1: Boolean) {
                             ApplicationManager.getApplication().runWriteAction{
                                 RuntimeEnvironmentService.getService { service ->
+                                    if(p1){
+                                        p0.presentation.text = "关闭"
+                                    }else {
+                                        p0.presentation.text = "开启"
+                                    }
                                     service.updateActive(envComboBox.selection, p1)
                                 }
                             }
@@ -232,12 +240,20 @@ class PluginImpl : IPlugin {
                     }
                 })
 
+                val settingAction = object:AnAction({"Settings"}, AllIcons.General.Settings) {
+                    override fun actionPerformed(p0: AnActionEvent) {
+                        val envSettingDialog = EnvSettingDialog(project,modulesBox.selection,envComboBox)
+                        envSettingDialog.show()
+                    }
+                }
+
                 val actionManager = ActionManager.getInstance()
                 val toolbar =
                     actionManager.createActionToolbar("JTools@RuntimeEnvironment@Toolbar", DefaultActionGroup().also {
                         it.add(enabledAction)
                         it.add(modulesBox)
                         it.add(envComboBox)
+                        it.add(settingAction)
                     }, true)
                 toolbar.targetComponent = this
                 this.add(JPanel(BorderLayout()).apply {

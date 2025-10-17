@@ -79,7 +79,7 @@ public class RuntimeEnvironment {
                     RuntimeEnvironment runtimeEnvironment = new RuntimeEnvironment();
                     runtimeEnvironment.setProjectHash(project.getLocationHash())
                             .setProjectName(project.getName())
-                            .setProjectPath(project.getProjectFilePath())
+                            .setProjectPath(project.getBasePath())
                             .setModule(module.toString())
                             .setName(item.component1())
                             .setRemark(item.component2());

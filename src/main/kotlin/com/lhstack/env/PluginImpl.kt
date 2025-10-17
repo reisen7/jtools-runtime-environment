@@ -7,6 +7,7 @@ import com.intellij.openapi.actionSystem.*
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.editor.event.DocumentEvent
 import com.intellij.openapi.editor.event.DocumentListener
+import com.intellij.openapi.fileTypes.PlainTextFileType
 import com.intellij.openapi.module.Module
 import com.intellij.openapi.module.ModuleManager
 import com.intellij.openapi.project.Project
@@ -43,6 +44,7 @@ class PluginImpl : IPlugin {
             disposers[project.locationHash] = disposable
             val envTextField = MultiLanguageTextField(PropertiesFileType.INSTANCE, project, "")
             val argsTextField = MultiLanguageTextField(PropertiesFileType.INSTANCE, project, "")
+            val vmTextField = MultiLanguageTextField(PlainTextFileType.INSTANCE, project, "")
             Disposer.register(disposable, envTextField)
             Disposer.register(disposable, argsTextField)
             JPanel(BorderLayout()).apply {
@@ -195,6 +197,20 @@ class PluginImpl : IPlugin {
                         }
                     }
                 })
+                vmTextField.addDocumentListener(object : DocumentListener {
+                    override fun documentChanged(event: DocumentEvent) {
+                        if (changeState.get()) {
+                            ApplicationManager.getApplication().runWriteAction {
+                                RuntimeEnvironmentService.getService { service ->
+                                    envComboBox.selection?.also { env ->
+                                        env.vmValue = event.document.text
+                                        service.updateById(env)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                })
 
                 argsTextField.addDocumentListener(object : DocumentListener {
                     override fun documentChanged(event: DocumentEvent) {
@@ -224,12 +240,22 @@ class PluginImpl : IPlugin {
                         this.add(toolbar.component, BorderLayout.EAST)
                     }, BorderLayout.NORTH)
                     this.add(JBSplitter(true).apply {
-                        firstComponent = JPanel(BorderLayout()).apply {
-                            this.add(JLabel("附加main函数启动的args参数").apply {
-                                this.border = JBUI.Borders.empty(5, 0)
-                                this.font = JBUI.Fonts.label(14.0f)
-                            }, BorderLayout.NORTH)
-                            this.add(argsTextField, BorderLayout.CENTER)
+                        this.proportion = 0.667f
+                        firstComponent = JBSplitter(true).apply {
+                            firstComponent = JPanel(BorderLayout()).apply {
+                                this.add(JLabel("附加JVM参数,多个回车隔开").apply {
+                                    this.border = JBUI.Borders.empty(5, 0)
+                                    this.font = JBUI.Fonts.label(14.0f)
+                                }, BorderLayout.NORTH)
+                                this.add(vmTextField, BorderLayout.CENTER)
+                            }
+                            secondComponent = JPanel(BorderLayout()).apply {
+                                this.add(JLabel("附加main函数启动的args参数").apply {
+                                    this.border = JBUI.Borders.empty(5, 0)
+                                    this.font = JBUI.Fonts.label(14.0f)
+                                }, BorderLayout.NORTH)
+                                this.add(argsTextField, BorderLayout.CENTER)
+                            }
                         }
                         secondComponent = JPanel(BorderLayout()).apply {
                             this.add(JLabel("附加应用启动的环境变量").apply {

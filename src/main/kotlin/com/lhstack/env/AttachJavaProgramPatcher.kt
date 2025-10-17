@@ -31,9 +31,13 @@ class AttachJavaProgramPatcher: JavaProgramPatcher() {
                             service.getById(envId)?.also { runtimeEnv ->
                                 val env = runtimeEnv.envValue?:""
                                 val args = runtimeEnv.argsValue?:""
+                                val vmArgs = runtimeEnv.vmValue?:""
                                 args.split("\n").forEach { line ->
                                     val array = line.split("=")
                                     p2.programParametersList.add("${array[0].trim()}=${array[1].trim()}")
+                                }
+                                vmArgs.split("\n").forEach { line ->
+                                    p2.vmParametersList.add(line.trim())
                                 }
                                 env.split("\n").forEach { line ->
                                     val array = line.split("=")

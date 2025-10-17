@@ -57,6 +57,11 @@ public class RuntimeEnvironment {
     private String envValue;
 
     /**
+     * vm值
+     */
+    private String vmValue;
+
+    /**
      * 创建时间
      */
     @TableField(fill = FieldFill.INSERT)
@@ -82,6 +87,14 @@ public class RuntimeEnvironment {
                 }).collect(Collectors.toList());
     }
 
+    public String getVmValue() {
+        return vmValue;
+    }
+
+    public RuntimeEnvironment setVmValue(String vmValue) {
+        this.vmValue = vmValue;
+        return this;
+    }
 
     public String getName() {
         return name;
